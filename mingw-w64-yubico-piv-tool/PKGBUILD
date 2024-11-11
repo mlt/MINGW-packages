@@ -26,23 +26,19 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-check")
 validpgpkeys=('1D7308B0055F5AEF36944A8F27A9C24D9588EA0F') # Aveen Ismail <aveen.ismail@yubico.com>
 source=("https://developers.yubico.com/${_realname}/Releases/${_realname}-${pkgver}.tar.gz"{,.sig}
-        "gengetopt.patch"
-        "applink.patch"
-        "internal.patch"
-        "lib_cmake.patch"
-        "ykcs11_cmake.patch"
-        "test.patch")
+        "0001-Separate-WIN32-and-MSVC-to-allow-for-MSYS2-gcc-build.patch"
+        "0002-Extra-define-and-cast-away-const-for-BCryptDeriveKey.patch"
+        "ykcs11.module")
 sha256sums=('d4efd2d7c5baca49ffc070dea5fb64c17239095e0e54b10766a8a156b0c09285'
-            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+            'SKIP' 'SKIP' 'SKIP' 'SKIP')
 
 prepare() {
-  patch -Np1 -i "${srcdir}"/gengetopt.patch
-  patch -Np1 -i "${srcdir}"/applink.patch
-  patch -Np1 -i "${srcdir}"/internal.patch
-  patch -Np1 -i "${srcdir}"/lib_cmake.patch
-  patch -Np1 -i "${srcdir}"/ykcs11_cmake.patch
-  patch -Np1 -i "${srcdir}"/test.patch
-  
+  cd "${_realname}-${pkgver}"
+  patch -Np1 -i "${srcdir}"/0001-Separate-WIN32-and-MSVC-to-allow-for-MSYS2-gcc-build.patch
+  patch -Np1 -i "${srcdir}"/0002-Extra-define-and-cast-away-const-for-BCryptDeriveKey.patch
+}
+
+build() {
   declare -a extra_config
   if check_option "debug" "n"; then
     extra_config+=("-DCMAKE_BUILD_TYPE=Release")
@@ -51,22 +47,15 @@ prepare() {
   fi
 
   # -DHELP2MAN_LOCATION="perl /usr/bin/help2man" \
-  # TODO: Something is up with libz & check detection
-  # consider opening an issue
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
     cmake \
-      -DBACKEND=winscard \
-      -Dcheck_FOUND=1 -DLIBCHECK_LDFLAGS=-lcheck \
-      -DZLIB=/ucrt64/lib/libz.dll.a \
       -GNinja \
       -DGENERATE_MAN_PAGES=OFF \
       -DCMAKE_INSTALL_PREFIX="${MINGW_PREFIX}" \
       "${extra_config[@]}" \
       -S "${_realname}-${pkgver}" \
       -B "build-${MSYSTEM}"
-}
 
-build() {
   cmake --build "build-${MSYSTEM}"
 }
 
@@ -82,5 +71,5 @@ package() {
   # so that p11-kit, p11tool, etc can use libykcs11 out of the box
   # also https://github.com/Yubico/yubico-piv-tool/issues/92
   mkdir -p ${pkgdir}${MINGW_PREFIX}/share/p11-kit/modules
-  echo "module: ..\..\bin\libykcs11.dll" > ${pkgdir}${MINGW_PREFIX}/share/p11-kit/modules/yubico.module
+  install -Dm644 ${srcdir}/ykcs11.module ${pkgdir}${MINGW_PREFIX}/share/p11-kit/modules/ykcs11.module
 }
