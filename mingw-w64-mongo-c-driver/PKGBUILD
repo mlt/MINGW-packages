@@ -20,7 +20,8 @@ msys2_references=(
 optdepends=("${MINGW_PACKAGE_PREFIX}-zlib: Enable zlib compression support"
             "${MINGW_PACKAGE_PREFIX}-zstd: Enable zstd compression support"
             "${MINGW_PACKAGE_PREFIX}-snappy: Enable Snappy compression support"
-            "${MINGW_PACKAGE_PREFIX}-libutf8proc: Needed for SCRAM-SHA-256 authentication with non-ASCII passwords")
+            "${MINGW_PACKAGE_PREFIX}-libutf8proc: Needed for SCRAM-SHA-256 authentication with non-ASCII passwords"
+            "${MINGW_PACKAGE_PREFIX}-libmongocrypt: Client Side and Queryable Encryption")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-ninja"
@@ -29,7 +30,8 @@ makedepends=("${MINGW_PACKAGE_PREFIX}-cc"
              "${MINGW_PACKAGE_PREFIX}-zlib"
              "${MINGW_PACKAGE_PREFIX}-zstd"
              "${MINGW_PACKAGE_PREFIX}-snappy"
-             "${MINGW_PACKAGE_PREFIX}-libutf8proc")
+             "${MINGW_PACKAGE_PREFIX}-libutf8proc"
+             "${MINGW_PACKAGE_PREFIX}-libmongocrypt")
 # source=("mongo-c-driver-${pkgver}.tar.gz::https://github.com/mongodb/mongo-c-driver/archive/refs/tags/${pkgver}.tar.gz")
 # curl -s https://pgp.mongodb.com/c-driver.asc | gpg --import
 # validpgpkeys=('6DB55D8223FF44E49DCB981344E76C0565ABC463')  # MongoDB C Driver Release Signing Key <packaging@mongodb.com>
@@ -38,12 +40,14 @@ source=("${msys2_repository_url}/releases/download/${pkgver}/${_realname}-${pkgv
         '002-pkgconf-require-deps.patch'
         '003-pkgconf-winsock-and-noinc.patch'
         '004-delay-load-deps.patch'
+        '005-static-lmc.patch'
         'DelayLoad.cmake')
 sha256sums=('031b23793a0e0b5eacce0004d9de03c084f6d258f596d374c7a005726dc0206b'
             '3e00cd9d754e719d0c19867158ed5286ffa56de6b81f796f885cec1e3f8e1d70'
-            '83a78751d0a89cd908213977f9adf0f20c67ff132a67ed0ec50570ddd5965277'
+            'ee82ef67ff9d70887e926d84cce4741576e2c8d1f9f46340ede9b034a64a0253'
             '617f8df280d363557174eb098185af2bb048a59693ae0064070e8568b8fd4eb8'
             'b5b227e558723be0aefbe316877575bd9cfcc308021dd691d03b7a0bf13748f9'
+            'e0a7b658bf194bc9143fce2a3125eb76e253d64b4266ac394f6151eaaeb84b81'
             '5c955f8ef570fd2ca0c241073467e3d9f620c8be3d2b9e54ab002bde3627e933')
 
 prepare() {
@@ -56,6 +60,7 @@ prepare() {
   patch -Np1 -i "${srcdir}/002-pkgconf-require-deps.patch"
   patch -Np1 -i "${srcdir}/003-pkgconf-winsock-and-noinc.patch"
   patch -Np1 -i "${srcdir}/004-delay-load-deps.patch"
+  patch -Np1 -i "${srcdir}/005-static-lmc.patch"
 
   cp -a "${srcdir}/DelayLoad.cmake" "src/libmongoc/DelayLoad.cmake"
 }
@@ -70,7 +75,6 @@ build() {
     _extra_config+=("-DCMAKE_BUILD_TYPE=Debug")
   fi
 
-  # TODO: libmongocrypt to ENABLE_CLIENT_SIDE_ENCRYPTION
   MSYS2_ARG_CONV_EXCL="-DCMAKE_INSTALL_PREFIX=" \
   "${MINGW_PREFIX}"/bin/cmake.exe \
     -GNinja \
@@ -86,7 +90,7 @@ build() {
     -DENABLE_SASL=SSPI \
     -DENABLE_MONGODB_AWS_AUTH=ON \
     -DENABLE_SNAPPY=ON \
-    -DENABLE_CLIENT_SIDE_ENCRYPTION=OFF \
+    -DENABLE_CLIENT_SIDE_ENCRYPTION=ON \
     -DUSE_BUNDLED_UTF8PROC=OFF \
     -DENABLE_SRV=ON \
     -DMONGOC_INSTALL_INCLUDEDIR=include \
@@ -95,7 +99,7 @@ build() {
     -DBSON_INSTALL_CMAKEDIR=lib/cmake/bson \
     -DENABLE_UNINSTALL=OFF \
     "${_extra_config[@]}" \
-    ../mongo-c-driver-${pkgver}
+    ../${_realname}-${pkgver}
 
   "${MINGW_PREFIX}"/bin/cmake.exe --build .
 }
